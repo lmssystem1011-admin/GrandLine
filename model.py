@@ -233,7 +233,6 @@ def compute_text_embedding(text):
     """Generate semantic embedding for OCR text"""
     if not text or len(text.strip()) == 0:
         return np.zeros(OCR_EMBEDDING_DIM, dtype=np.float32)
-    
     try:
         embedding = sentence_model.encode(text)
         return embedding.astype(np.float32)
