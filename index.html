@@ -730,6 +730,52 @@
     <script>
         let processedFiles = [];
         let currentResults = [];
+        // 🔹 Drag & Drop Support
+const uploadArea = document.querySelector('.upload-area');
+const fileInput = document.getElementById('fileInput');
+
+uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.style.borderColor = '#fff';
+});
+
+uploadArea.addEventListener('dragleave', () => {
+    uploadArea.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+});
+
+uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    fileInput.files = e.dataTransfer.files;
+    previewFiles(fileInput.files);
+    showNotification(e.dataTransfer.files.length + ' file(s) dropped for classification');
+});
+
+// 🔹 File Preview Before Classification
+function previewFiles(files) {
+    const resultsContainer = document.getElementById('resultsContainer');
+    resultsContainer.innerHTML = '';
+    Array.from(files).forEach(file => {
+        const item = document.createElement('div');
+        item.className = 'result-item';
+        item.innerHTML = `
+            <div class="result-thumbnail">📷</div>
+            <div class="result-info">
+                <div class="result-name">${file.name}</div>
+                <div class="result-text">Awaiting classification...</div>
+            </div>
+        `;
+        resultsContainer.appendChild(item);
+    });
+}
+
+// Hook into normal file selection too
+fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        previewFiles(e.target.files);
+        showNotification(e.target.files.length + ' file(s) selected for classification');
+    }
+});
+
 
         function processFiles() {
             const fileInput = document.getElementById('fileInput');
@@ -839,4 +885,5 @@
                 applyFilters()
             }
         });
+
 
