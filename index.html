@@ -600,7 +600,7 @@
                 <div class="upload-area" onclick="document.getElementById('fileInput').click()">
                     <div class="upload-icon">📁</div>
                     <div class="upload-text">Drop screenshots here or click to browse</div>
-                    <div class="upload-subtext">Supports: PNG, JPG, PDF, batch uploads</div>
+                    <div class="upload-subtext">Supports: PNG, JPG, PDF, Batch uploads</div>
                 </div>
                 <input type="file" id="fileInput" class="file-input" multiple accept=".png,.jpg,.jpeg,.pdf">
                 <button class="btn" onclick="processFiles()">Start Classification</button>
@@ -835,4 +835,5 @@
         // Search functionality
         document.getElementById('searchInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
+
                 applyFilters
