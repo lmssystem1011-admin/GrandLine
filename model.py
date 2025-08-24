@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, classification_report
 import seaborn as sns
 from PIL import Image
-
 # Hugging Face / PyTorch
 import torch
 from transformers import CLIPProcessor, CLIPModel
