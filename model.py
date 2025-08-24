@@ -19,7 +19,6 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipe
 import easyocr
 import spacy
 from spacy import displacy
-
 # Mixed precision for speed
 tf.keras.mixed_precision.set_global_policy("mixed_float16")
 
