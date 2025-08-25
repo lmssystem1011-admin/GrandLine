@@ -1,4 +1,4 @@
-# AI‑Powered Screenshot Classifier (Short README)
+# AI‑Powered Screenshot Classifier 
 
 Automates classification of screenshots for investigations. Identifies **chats, transactions, threats, adult content**, and more using OCR and ML.
 
@@ -44,4 +44,6 @@ AI_SS_Classifier/
 └─ data/       # Screenshots/data
 ```
 
+##Model Train Confusion Matrx
+<img width="934" height="794" alt="image" src="https://github.com/user-attachments/assets/a6af9004-eb84-456b-8302-cfd63677dcaa" />
 
