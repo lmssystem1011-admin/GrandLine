@@ -1,889 +1,313 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI-Powered Screenshot Classifier</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%);
-            background-size: 300% 300%;
-            animation: gradientShift 15s ease infinite;
-            min-height: 100vh;
-            color: #ffffff;
-            position: relative;
-        }
-
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.4);
-            backdrop-filter: blur(1px);
-            z-index: -1;
-        }
-
-        @keyframes gradientShift {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 50px;
-            padding: 40px 0;
-        }
-
-        .header h1 {
-            font-size: 3.5em;
-            margin-bottom: 15px;
-            font-weight: 700;
-            background: linear-gradient(135deg, #ffffff, #e0e7ff);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-shadow: 0 4px 30px rgba(255, 255, 255, 0.3);
-            letter-spacing: -1px;
-        }
-
-        .header p {
-            font-size: 1.3em;
-            color: rgba(255, 255, 255, 0.9);
-            font-weight: 400;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        .main-panel {
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 24px;
-            padding: 40px;
-            margin-bottom: 30px;
-            box-shadow: 
-                0 20px 40px rgba(0, 0, 0, 0.1),
-                inset 0 1px 0 rgba(255, 255, 255, 0.3);
-        }
-
-        .upload-section {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
-        .upload-area {
-            border: 3px dashed rgba(255, 255, 255, 0.4);
-            border-radius: 20px;
-            padding: 60px 30px;
-            background: rgba(255, 255, 255, 0.1);
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            margin-bottom: 25px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .upload-area::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-            transform: rotate(45deg);
-            transition: all 0.5s ease;
-            opacity: 0;
-        }
-
-        .upload-area:hover {
-            border-color: rgba(255, 255, 255, 0.8);
-            background: rgba(255, 255, 255, 0.2);
-            transform: translateY(-5px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-        }
-
-        .upload-area:hover::before {
-            opacity: 1;
-            animation: shimmer 1s ease-in-out;
-        }
-
-        @keyframes shimmer {
-            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
-            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
-        }
-
-        .upload-icon {
-            font-size: 4em;
-            margin-bottom: 20px;
-            filter: drop-shadow(0 4px 20px rgba(255, 255, 255, 0.3));
-        }
-
-        .upload-text {
-            font-size: 1.4em;
-            margin-bottom: 12px;
-            font-weight: 600;
-        }
-
-        .upload-subtext {
-            color: rgba(255, 255, 255, 0.8);
-            font-size: 1em;
-        }
-
-        .file-input {
-            display: none;
-        }
-
-        .btn {
-            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
-            color: #ffffff;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 50px;
-            cursor: pointer;
-            font-size: 1.1em;
-            font-weight: 600;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            margin: 8px;
-            box-shadow: 0 8px 25px rgba(238, 90, 36, 0.3);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.5s ease;
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 35px rgba(238, 90, 36, 0.4);
-            background: linear-gradient(135deg, #ee5a24, #ff6b6b);
-        }
-
-        .btn:hover::before {
-            left: 100%;
-        }
-
-        .btn-secondary {
-            background: linear-gradient(135deg, #74b9ff, #0984e3);
-            box-shadow: 0 8px 25px rgba(116, 185, 255, 0.3);
-        }
-
-        .btn-secondary:hover {
-            background: linear-gradient(135deg, #0984e3, #74b9ff);
-            box-shadow: 0 12px 35px rgba(116, 185, 255, 0.4);
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 25px;
-            margin-bottom: 40px;
-        }
-
-        .feature-card {
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(15px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 30px;
-            border-radius: 20px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .feature-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, #ff6b6b, #74b9ff, #55efc4);
-            transform: translateX(-100%);
-            transition: transform 0.3s ease;
-        }
-
-        .feature-card:hover {
-            transform: translateY(-8px);
-            background: rgba(255, 255, 255, 0.2);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-        }
-
-        .feature-card:hover::before {
-            transform: translateX(0);
-        }
-
-        .feature-icon {
-            font-size: 3em;
-            margin-bottom: 20px;
-            filter: drop-shadow(0 4px 15px rgba(255, 255, 255, 0.2));
-        }
-
-        .feature-title {
-            font-size: 1.4em;
-            font-weight: 700;
-            margin-bottom: 15px;
-        }
-
-        .feature-desc {
-            color: rgba(255, 255, 255, 0.9);
-            line-height: 1.6;
-            font-size: 1em;
-        }
-
-        .controls-panel {
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 30px;
-            border-radius: 20px;
-            margin-bottom: 30px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-        }
-
-        .control-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 25px;
-            align-items: end;
-            margin-bottom: 20px;
-        }
-
-        .control-group {
-            flex: 1;
-            min-width: 250px;
-        }
-
-        .control-label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            font-size: 1em;
-        }
-
-        .control-input, .control-select {
-            width: 100%;
-            padding: 12px 18px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            color: #ffffff;
-            border-radius: 12px;
-            font-size: 1em;
-            transition: all 0.3s ease;
-        }
-
-        .control-input::placeholder {
-            color: rgba(255, 255, 255, 0.7);
-        }
-
-        .control-input:focus, .control-select:focus {
-            outline: none;
-            border-color: rgba(255, 255, 255, 0.8);
-            background: rgba(255, 255, 255, 0.2);
-            box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1);
-        }
-
-        .results-section {
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 20px;
-            padding: 35px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-        }
-
-        .results-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .results-title {
-            font-size: 1.8em;
-            font-weight: 700;
-        }
-
-        .results-count {
-            font-weight: 600;
-            font-size: 1.1em;
-            background: rgba(255, 255, 255, 0.2);
-            padding: 8px 16px;
-            border-radius: 20px;
-        }
-
-        .result-item {
-            display: flex;
-            align-items: center;
-            padding: 25px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 16px;
-            margin-bottom: 15px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .result-item:hover {
-            transform: translateX(8px);
-            background: rgba(255, 255, 255, 0.2);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-        }
-
-        .result-thumbnail {
-            width: 80px;
-            height: 80px;
-            background: rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 25px;
-            font-size: 2.2em;
-            flex-shrink: 0;
-            backdrop-filter: blur(10px);
-        }
-
-        .result-info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .result-name {
-            font-weight: 600;
-            margin-bottom: 10px;
-            font-size: 1.1em;
-        }
-
-        .result-category {
-            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
-            color: #ffffff;
-            padding: 6px 16px;
-            border-radius: 20px;
-            font-size: 0.85em;
-            font-weight: 600;
-            display: inline-block;
-            margin-right: 10px;
-            box-shadow: 0 4px 15px rgba(238, 90, 36, 0.3);
-        }
-
-        .result-confidence {
-            background: linear-gradient(135deg, #55efc4, #00b894);
-            color: #ffffff;
-            padding: 6px 16px;
-            border-radius: 20px;
-            font-size: 0.85em;
-            font-weight: 600;
-            display: inline-block;
-            box-shadow: 0 4px 15px rgba(0, 184, 148, 0.3);
-        }
-
-        .result-text {
-            color: rgba(255, 255, 255, 0.9);
-            font-size: 0.9em;
-            margin-top: 10px;
-            line-height: 1.4;
-        }
-
-        .result-actions {
-            display: flex;
-            gap: 12px;
-            flex-shrink: 0;
-        }
-
-        .action-btn {
-            padding: 10px 20px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 25px;
-            cursor: pointer;
-            font-size: 0.9em;
-            font-weight: 600;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            background: rgba(255, 255, 255, 0.1);
-            color: #ffffff;
-            backdrop-filter: blur(10px);
-        }
-
-        .action-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
-            border-color: rgba(255, 255, 255, 0.6);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 10px;
-            overflow: hidden;
-            margin: 20px 0;
-            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #ff6b6b, #74b9ff, #55efc4);
-            width: 0%;
-            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            border-radius: 10px;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 20px;
-            margin-bottom: 40px;
-        }
-
-        .stat-card {
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(15px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 25px;
-            border-radius: 16px;
-            text-align: center;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-            transition: left 0.5s ease;
-        }
-
-        .stat-card:hover {
-            transform: translateY(-5px);
-            background: rgba(255, 255, 255, 0.2);
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-        }
-
-        .stat-card:hover::before {
-            left: 100%;
-        }
-
-        .stat-number {
-            font-size: 2.5em;
-            font-weight: 800;
-            margin-bottom: 8px;
-            display: block;
-            background: linear-gradient(135deg, #ffffff, #e0e7ff);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .stat-label {
-            font-size: 0.9em;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: rgba(255, 255, 255, 0.9);
-        }
-
-        .notification {
-            position: fixed;
-            top: 30px;
-            right: 30px;
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #ffffff;
-            padding: 18px 25px;
-            border-radius: 15px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-            z-index: 1000;
-            font-weight: 600;
-            font-size: 0.95em;
-            max-width: 350px;
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                padding: 15px;
-            }
-            
-            .header h1 {
-                font-size: 2.5em;
-            }
-            
-            .main-panel, .controls-panel, .results-section {
-                padding: 25px;
-            }
-            
-            .control-row {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            
-            .result-item {
-                flex-direction: column;
-                text-align: center;
-                gap: 15px;
-            }
-            
-            .result-thumbnail {
-                margin-right: 0;
-            }
-
-            .result-actions {
-                justify-content: center;
-            }
-        }
-
-        /* Scrollbar styling */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.5);
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI-Powered Screenshot Classifier</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    :root {
+      --bg-color: linear-gradient(135deg, #1e1e2f, #252542, #3b1e54);
+      --card-bg: rgba(255, 255, 255, 0.1);
+      --text-color: #fff;
+      --subtext-color: rgba(255, 255, 255, 0.8);
+      --border-color: rgba(255, 255, 255, 0.2);
+      --highlight-color: #4a90e2;
+    }
+
+    body.light {
+      --bg-color: #f5f7fa;
+      --card-bg: #ffffff;
+      --text-color: #222;
+      --subtext-color: #555;
+      --border-color: #ddd;
+      --highlight-color: #007bff;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-color);
+      color: var(--text-color);
+      min-height: 100vh;
+      padding: 30px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+    .container {
+      width: 100%;
+      max-width: 1200px;
+      background: var(--card-bg);
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+      border: 1px solid var(--border-color);
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+    .header-title {
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--text-color);
+    }
+    .theme-toggle {
+      background: var(--highlight-color);
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: background 0.3s;
+    }
+    .theme-toggle:hover {
+      background: #357ab8;
+    }
+
+    .upload-box {
+      border: 2px dashed var(--border-color);
+      border-radius: 15px;
+      padding: 40px;
+      text-align: center;
+      margin-bottom: 30px;
+      cursor: pointer;
+      transition: border-color 0.3s, background 0.3s;
+    }
+    .upload-box:hover {
+      border-color: var(--highlight-color);
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .upload-icon { font-size: 40px; margin-bottom: 15px; }
+    .upload-text { font-size: 18px; font-weight: 500; color: var(--text-color); }
+    .upload-subtext { font-size: 14px; color: var(--subtext-color); }
+
+    .filters {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 25px;
+      flex-wrap: wrap;
+    }
+    .filter-input, .filter-select {
+      flex: 1;
+      min-width: 200px;
+      padding: 12px 15px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      background: var(--card-bg);
+      color: var(--text-color);
+    }
+
+    .results-section { margin-top: 20px; }
+    .results-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    .results-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text-color);
+    }
+    .results-count {
+      font-size: 14px;
+      color: var(--subtext-color);
+    }
+
+    .result-item {
+      display: flex;
+      align-items: center;
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 15px;
+      border: 1px solid var(--border-color);
+      gap: 20px;
+      transition: transform 0.2s, background 0.3s;
+    }
+    .result-item:hover { transform: translateY(-2px); background: rgba(255,255,255,0.05); }
+    .result-thumbnail { font-size: 32px; }
+    .result-info { flex: 1; }
+    .result-name { font-size: 16px; font-weight: 600; margin-bottom: 6px; color: var(--text-color); }
+    .result-category {
+      display: inline-block;
+      background: var(--highlight-color);
+      color: #fff;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      margin-right: 10px;
+    }
+    .result-confidence { font-size: 12px; color: var(--subtext-color); }
+    .result-text { font-size: 14px; color: var(--subtext-color); margin-top: 5px; }
+    .result-actions { display: flex; gap: 10px; }
+    .action-btn {
+      background: var(--highlight-color);
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.3s;
+    }
+    .action-btn:hover { background: #357ab8; }
+
+    /* Notification */
+    .notification {
+      position: fixed;
+      top: 20px; right: 20px;
+      background: var(--highlight-color);
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      display: none;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px);} to {opacity: 1; transform: translateY(0);} }
+
+    @media (max-width: 768px) {
+      .filters { flex-direction: column; }
+      .filter-input, .filter-select { min-width: 100%; }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <header class="header">
-            <h1>AI-Powered Screenshot Classifier</h1>
-            <p>Automated forensic analysis and categorization for legal investigations</p>
-        </header>
-
-        <div class="main-panel">
-            <div class="upload-section">
-                <div class="upload-area" onclick="document.getElementById('fileInput').click()">
-                    <div class="upload-icon">📁</div>
-                    <div class="upload-text">Drop screenshots here or click to browse</div>
-                    <div class="upload-subtext">Supports: PNG, JPG, PDF, Batch uploads</div>
-                </div>
-                <input type="file" id="fileInput" class="file-input" multiple accept=".png,.jpg,.jpeg,.pdf">
-                <button class="btn" onclick="processFiles()">Start Classification</button>
-            </div>
-
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <span class="stat-number" id="totalFiles">0</span>
-                    <div class="stat-label">Files Processed</div>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-number" id="threats">0</span>
-                    <div class="stat-label">Threats Detected</div>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-number" id="classified">0</span>
-                    <div class="stat-label">Auto-Classified</div>
-                </div>
-            </div>
-
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">🤖</div>
-                    <div class="feature-title">AI Classification</div>
-                    <div class="feature-desc">Automatically categorize screenshots into chats, transactions, threats, and adult content with high accuracy.</div>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🌍</div>
-                    <div class="feature-title">Multi-language OCR</div>
-                    <div class="feature-desc">Extract text from images in multiple languages with advanced optical character recognition.</div>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">📊</div>
-                    <div class="feature-title">Legal Reporting</div>
-                    <div class="feature-desc">Generate comprehensive reports with search and export options for court proceedings.</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="controls-panel">
-            <div class="control-row">
-                <div class="control-group">
-                    <label class="control-label" for="categoryFilter">Filter by Category</label>
-                    <select class="control-select" id="categoryFilter">
-                        <option value="all">All Categories</option>
-                        <option value="chats">Chat Messages</option>
-                        <option value="transactions">Transactions</option>
-                        <option value="threats">Threats</option>
-                        <option value="adult">Adult Content</option>
-                    </select>
-                </div>
-                <div class="control-group">
-                    <label class="control-label" for="searchInput">Search Keywords</label>
-                    <input type="text" class="control-input" id="searchInput" placeholder="Search extracted text...">
-                </div>
-                <div class="control-group" style="flex: 0 0 auto;">
-                    <label class="control-label">&nbsp;</label>
-                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                        <button class="btn" onclick="applyFilters()">Apply Filters</button>
-                        <button class="btn btn-secondary" onclick="exportResults()">Export Report</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="progress-bar" id="progressBar" style="display: none;">
-            <div class="progress-fill" id="progressFill"></div>
-        </div>
-
-        <div class="results-section">
-            <div class="results-header">
-                <div class="results-title">Classification Results</div>
-                <div class="results-count" id="resultsCount">0 items found</div>
-            </div>
-            <div id="resultsContainer">
-                <div class="result-item">
-                    <div class="result-thumbnail">📱</div>
-                    <div class="result-info">
-                        <div class="result-name">WhatsApp_Screenshot_001.png</div>
-                        <div style="margin: 12px 0;">
-                            <span class="result-category">Chat Message</span>
-                            <span class="result-confidence">95% Confidence</span>
-                        </div>
-                        <div class="result-text">Extracted: "Meet me at the usual place tomorrow..."</div>
-                    </div>
-                    <div class="result-actions">
-                        <button class="action-btn">View</button>
-                        <button class="action-btn">Export</button>
-                    </div>
-                </div>
-                
-                <div class="result-item">
-                    <div class="result-thumbnail">💳</div>
-                    <div class="result-info">
-                        <div class="result-name">Bank_Transfer_002.jpg</div>
-                        <div style="margin: 12px 0;">
-                            <span class="result-category">Transaction</span>
-                            <span class="result-confidence">92% Confidence</span>
-                        </div>
-                        <div class="result-text">Amount: $5,000 | Account: ***1234</div>
-                    </div>
-                    <div class="result-actions">
-                        <button class="action-btn">View</button>
-                        <button class="action-btn">Export</button>
-                    </div>
-                </div>
-                
-                <div class="result-item">
-                    <div class="result-thumbnail">⚠️</div>
-                    <div class="result-info">
-                        <div class="result-name">Threat_Message_003.png</div>
-                        <div style="margin: 12px 0;">
-                            <span class="result-category">Threat</span>
-                            <span class="result-confidence">88% Confidence</span>
-                        </div>
-                        <div class="result-text">Keywords detected: threat, harm, violence</div>
-                    </div>
-                    <div class="result-actions">
-                        <button class="action-btn">View</button>
-                        <button class="action-btn">Export</button>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <div class="container">
+    <div class="header">
+      <div class="header-title">AI-Powered Screenshot Classifier</div>
+      <button class="theme-toggle" onclick="toggleTheme()">🌙 Dark/Light</button>
     </div>
 
-    <script>
-        let processedFiles = [];
-        let currentResults = [];
-        // 🔹 Drag & Drop Support
-const uploadArea = document.querySelector('.upload-area');
-const fileInput = document.getElementById('fileInput');
+    <div class="upload-box" onclick="document.getElementById('fileInput').click()">
+      <div class="upload-icon">📂</div>
+      <div class="upload-text">Upload Screenshots</div>
+      <div class="upload-subtext">Drag & drop or click to browse files</div>
+      <input type="file" id="fileInput" multiple style="display:none">
+    </div>
 
-uploadArea.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    uploadArea.style.borderColor = '#fff';
-});
+    <div class="filters">
+      <input type="text" id="searchInput" class="filter-input" placeholder="Search by keyword...">
+      <select id="categoryFilter" class="filter-select">
+        <option value="all">All Categories</option>
+        <option value="chat">Chat Messages</option>
+        <option value="transaction">Transactions</option>
+        <option value="threat">Threats</option>
+        <option value="adult">Adult Content</option>
+      </select>
+    </div>
 
-uploadArea.addEventListener('dragleave', () => {
-    uploadArea.style.borderColor = 'rgba(255, 255, 255, 0.4)';
-});
+    <div class="results-section">
+      <div class="results-header">
+        <div class="results-title">Classification Results</div>
+        <div class="results-count" id="resultsCount">0 items found</div>
+      </div>
+      <div id="resultsContainer">
+        <div class="result-item">
+          <div class="result-thumbnail">📱</div>
+          <div class="result-info">
+            <div class="result-name">WhatsApp_Screenshot_001.png</div>
+            <span class="result-category">Chat Message</span>
+            <span class="result-confidence">95% Confidence</span>
+            <div class="result-text">Extracted: "Meet me at the usual place tomorrow..."</div>
+          </div>
+          <div class="result-actions">
+            <button class="action-btn">View</button>
+            <button class="action-btn">Export</button>
+          </div>
+        </div>
+        <div class="result-item">
+          <div class="result-thumbnail">💳</div>
+          <div class="result-info">
+            <div class="result-name">Bank_Transfer_002.jpg</div>
+            <span class="result-category">Transaction</span>
+            <span class="result-confidence">92% Confidence</span>
+            <div class="result-text">Amount: $5,000 | Account: ***1234</div>
+          </div>
+          <div class="result-actions">
+            <button class="action-btn">View</button>
+            <button class="action-btn">Export</button>
+          </div>
+        </div>
+        <div class="result-item">
+          <div class="result-thumbnail">⚠️</div>
+          <div class="result-info">
+            <div class="result-name">Threat_Message_003.png</div>
+            <span class="result-category">Threat</span>
+            <span class="result-confidence">88% Confidence</span>
+            <div class="result-text">Keywords detected: threat, harm, violence</div>
+          </div>
+          <div class="result-actions">
+            <button class="action-btn">View</button>
+            <button class="action-btn">Export</button>
+          </div>
+        </div>
+        <div class="result-item">
+          <div class="result-thumbnail">🔞</div>
+          <div class="result-info">
+            <div class="result-name">Adult_Content_004.jpg</div>
+            <span class="result-category">Adult Content</span>
+            <span class="result-confidence">90% Confidence</span>
+            <div class="result-text">Detected: NSFW material (blurred preview for safety).</div>
+          </div>
+          <div class="result-actions">
+            <button class="action-btn">View</button>
+            <button class="action-btn">Export</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-uploadArea.addEventListener('drop', (e) => {
-    e.preventDefault();
-    fileInput.files = e.dataTransfer.files;
-    previewFiles(fileInput.files);
-    showNotification(e.dataTransfer.files.length + ' file(s) dropped for classification');
-});
+  <div id="notification" class="notification"></div>
 
-// 🔹 File Preview Before Classification
-function previewFiles(files) {
-    const resultsContainer = document.getElementById('resultsContainer');
-    resultsContainer.innerHTML = '';
-    Array.from(files).forEach(file => {
-        const item = document.createElement('div');
-        item.className = 'result-item';
-        item.innerHTML = `
-            <div class="result-thumbnail">📷</div>
-            <div class="result-info">
-                <div class="result-name">${file.name}</div>
-                <div class="result-text">Awaiting classification...</div>
-            </div>
-        `;
-        resultsContainer.appendChild(item);
-    });
-}
-
-// Hook into normal file selection too
-fileInput.addEventListener('change', (e) => {
-    if (e.target.files.length > 0) {
-        previewFiles(e.target.files);
-        showNotification(e.target.files.length + ' file(s) selected for classification');
+  <script>
+    function updateResultsCount() {
+      const count = document.querySelectorAll('.result-item').length;
+      document.getElementById('resultsCount').textContent = count + ' items found';
     }
-});
 
+    function applyFilters() {
+      const category = document.getElementById('categoryFilter').value.toLowerCase();
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const items = document.querySelectorAll('.result-item');
+      
+      items.forEach(item => {
+        const text = item.innerText.toLowerCase();
+        const matchesCategory = (category === 'all' || text.includes(category));
+        const matchesSearch = (search === '' || text.includes(search));
+        item.style.display = (matchesCategory && matchesSearch) ? 'flex' : 'none';
+      });
+      
+      updateResultsCount();
+      showNotification('Filters applied successfully');
+    }
 
-        function processFiles() {
-            const fileInput = document.getElementById('fileInput');
-            const files = fileInput.files;
-            
-            if (files.length === 0) {
-                showNotification('Please select files to process');
-                return;
-            }
+    document.getElementById('categoryFilter').addEventListener('change', applyFilters);
+    document.getElementById('searchInput').addEventListener('input', applyFilters);
 
-            showProgress();
-            simulateProcessing(files);
-        }
+    function showNotification(message) {
+      const notification = document.getElementById('notification');
+      notification.textContent = message;
+      notification.style.display = 'block';
+      setTimeout(() => { notification.style.display = 'none'; }, 3000);
+    }
 
-        function showProgress() {
-            const progressBar = document.getElementById('progressBar');
-            const progressFill = document.getElementById('progressFill');
-            
-            progressBar.style.display = 'block';
-            let progress = 0;
-            
-            const interval = setInterval(() => {
-                progress += Math.random() * 15;
-                if (progress >= 100) {
-                    progress = 100;
-                    clearInterval(interval);
-                    setTimeout(() => {
-                        progressBar.style.display = 'none';
-                        progressFill.style.width = '0%';
-                    }, 500);
-                }
-                progressFill.style.width = progress + '%';
-            }, 200);
-        }
+    function toggleTheme() {
+      document.body.classList.toggle('light');
+    }
 
-        function simulateProcessing(files) {
-            setTimeout(() => {
-                updateStats();
-                updateResultsCount();
-                showNotification('Processing complete! ' + files.length + ' files analyzed.');
-            }, 3000);
-        }
-
-        function updateStats() {
-            document.getElementById('totalFiles').textContent = '25';
-            document.getElementById('threats').textContent = '3';
-            document.getElementById('classified').textContent = '22';
-        }
-
-        function updateResultsCount() {
-            document.getElementById('resultsCount').textContent = '25 items found';
-        }
-
-        function applyFilters() {
-            const category = document.getElementById('categoryFilter').value;
-            const search = document.getElementById('searchInput').value;
-            
-            showNotification('Filters applied successfully');
-        }
-
-        function exportResults() {
-            showNotification('Generating report... Export will begin shortly.');
-        }
-
-        function showNotification(message) {
-            // Remove any existing notifications
-            const existingNotification = document.querySelector('.notification');
-            if (existingNotification) {
-                existingNotification.remove();
-            }
-
-            const notification = document.createElement('div');
-            notification.className = 'notification';
-            notification.textContent = message;
-            
-            document.body.appendChild(notification);
-            
-            // Animate in
-            notification.style.transform = 'translateX(100%)';
-            notification.style.opacity = '0';
-            
-            requestAnimationFrame(() => {
-                notification.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
-                notification.style.transform = 'translateX(0)';
-                notification.style.opacity = '1';
-            });
-            
-            setTimeout(() => {
-                notification.style.transform = 'translateX(100%)';
-                notification.style.opacity = '0';
-                setTimeout(() => notification.remove(), 400);
-            }, 3500);
-        }
-
-        // File upload handling
-        document.getElementById('fileInput').addEventListener('change', function(e) {
-            const files = e.target.files;
-            if (files.length > 0) {
-                showNotification(files.length + ' file(s) selected for classification');
-            }
-        });
-
-        // Search functionality
-        document.getElementById('searchInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-
-                applyFilters()
-            }
-        });
-
-
+    // init
+    updateResultsCount();
+  </script>
+</body>
+</html>
