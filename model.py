@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 from tqdm import tqdm
 import tensorflow as tf
+from tensorflow.keras.metrics import TopKCategoricalAccuracy
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras import backend as K
@@ -10,6 +11,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, classification_report
 import seaborn as sns
 from PIL import Image
+
 # Hugging Face / PyTorch
 import torch
 from transformers import CLIPProcessor, CLIPModel
@@ -19,6 +21,7 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipe
 import easyocr
 import spacy
 from spacy import displacy
+
 # Mixed precision for speed
 tf.keras.mixed_precision.set_global_policy("mixed_float16")
 
@@ -71,7 +74,7 @@ clip_model = CLIPModel.from_pretrained(clip_name).to(device)
 clip_processor = CLIPProcessor.from_pretrained(clip_name)
 
 # mDeBERTa MNLI for entailment
-nli_name = "microsoft/mdeberta-v3-base-mnli"
+nli_name = "MoritzLaurer/mDeBERTa-v3-base-mnli-xnli"
 nli_tokenizer = AutoTokenizer.from_pretrained(nli_name)
 nli_model = AutoModelForSequenceClassification.from_pretrained(nli_name).to(device)
 nli_model.eval()
@@ -81,7 +84,7 @@ from sentence_transformers import SentenceTransformer
 sentence_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 # OCR models - multi-language support
-ocr_reader = easyocr.Reader(['en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'ja', 'ko', 'zh'])
+ocr_reader = easyocr.Reader(['en', 'hi'])
 
 # NER model for entity recognition
 try:
@@ -93,14 +96,22 @@ except:
 # -----------------------------------------
 # 5) EfficientNetV2B0 backbone (unchanged)
 # -----------------------------------------
-base_model = tf.keras.applications.efficientnet_v2.EfficientNetV2B0(
-    include_top=False, weights="imagenet", input_shape=IMG_SIZE + (3,)
-)
+#base_model = tf.keras.applications.efficientnet_v2.EfficientNetV2B0(
+ #   include_top=False, weights="imagenet", input_shape=IMG_SIZE + (3,)
+#)
 img_inputs = tf.keras.Input(shape=IMG_SIZE + (3,))
 x = tf.keras.applications.efficientnet_v2.preprocess_input(img_inputs)
 x = base_model(x, training=False)
 x = layers.GlobalAveragePooling2D()(x)
-image_feature_extractor = tf.keras.Model(img_inputs, x)
+#image_feature_extractor = tf.keras.Model(img_inputs, x)
+
+base_model = tf.keras.applications.efficientnet_v2.EfficientNetV2B0(
+    include_top=False, weights="imagenet", input_shape=IMG_SIZE + (3,)
+)
+feature_extractor = tf.keras.Model(
+    inputs=base_model.input, 
+    outputs=tf.keras.layers.GlobalAveragePooling2D()(base_model.output)
+)
 
 # -----------------------------------------
 # 6) Enhanced utility functions
@@ -228,15 +239,19 @@ def compute_enhanced_nsfw_score(pil_image):
         return 0.5  # Neutral score on error
 
 def compute_text_embedding(text):
-    """Generate semantic embedding for OCR text"""
     if not text or len(text.strip()) == 0:
         return np.zeros(OCR_EMBEDDING_DIM, dtype=np.float32)
     try:
         embedding = sentence_model.encode(text)
-        return embedding.astype(np.float32)
+        embedding = np.array(embedding, dtype=np.float32)
+        # Ensure fixed dim
+        if embedding.shape[0] != OCR_EMBEDDING_DIM:
+            embedding = np.pad(embedding, (0, OCR_EMBEDDING_DIM - embedding.shape[0]))[:OCR_EMBEDDING_DIM]
+        return embedding
     except Exception as e:
         print(f"Text embedding error: {e}")
         return np.zeros(OCR_EMBEDDING_DIM, dtype=np.float32)
+
 
 def compute_nli_entailment_vector(extracted_text, class_names_list):
     """Enhanced NLI with multiple hypothesis templates"""
@@ -472,21 +487,32 @@ if __name__ == "__main__":
     # Compute enhanced features
     X_train, y_train = precompute_enhanced_features("train", train_items)
     X_val, y_val = precompute_enhanced_features("val", val_items)
-    
+    X_train = np.asarray(X_train)
+    X_val = np.asarray(X_val)
+    y_train = np.asarray(y_train)
+    y_val = np.asarray(y_val)
     print("Enhanced feature shapes:", X_train.shape, y_train.shape, X_val.shape, y_val.shape)
     
-    # Build and train enhanced model
+      
+        # Convert integer labels to one-hot floats
+    y_train_oh = tf.keras.utils.to_categorical(y_train, num_classes=num_classes).astype(np.float32)
+    y_val_oh   = tf.keras.utils.to_categorical(y_val,   num_classes=num_classes).astype(np.float32)
+
     feature_dim = X_train.shape[1]
-    dtype_head = "float32" if tf.keras.mixed_precision.global_policy().name == "mixed_float16" else None
-    enhanced_model = build_enhanced_classifier(feature_dim, num_classes, dtype_head=dtype_head)
-    
+    assert feature_dim == enhanced_model.input_shape[1], f"Feature dim mismatch: {feature_dim} vs {enhanced_model.input_shape}"
+
+    # --- Compile with categorical loss & top-k metric (for one-hot labels) ---
     enhanced_model.compile(
         optimizer=keras.optimizers.AdamW(learning_rate=1e-4, weight_decay=1e-5),
-        loss=keras.losses.SparseCategoricalCrossentropy(label_smoothing=0.1),
-        metrics=["accuracy", "top_3_accuracy"]
-    )
-    
+        loss=keras.losses.CategoricalCrossentropy(from_logits=False),   # one-hot labels -> categorical loss
+        metrics=[
+            "accuracy",
+            TopKCategoricalAccuracy(k=3, name="top_3_accuracy")
+        ]
+     )
+
     enhanced_model.summary()
+
     
     # Training with enhanced callbacks
     checkpoint_path = "/content/drive/MyDrive/enhanced_screenshot_classifier.keras"
@@ -509,10 +535,11 @@ if __name__ == "__main__":
             min_lr=1e-7
         )
     ]
-    
+        
+      # --- Fit (use smaller steps_per_epoch for debugging if you want) ---
     history = enhanced_model.fit(
-        X_train, y_train,
-        validation_data=(X_val, y_val),
+        X_train, y_train_oh,
+        validation_data=(X_val, y_val_oh),
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         callbacks=callbacks,
@@ -558,4 +585,61 @@ if __name__ == "__main__":
     with open("/content/drive/MyDrive/enhanced_feature_info.json", "w") as f:
         json.dump(feature_info, f, indent=2)
     
-    print("✅ Feature enhancement complete!")
+    print("✅ Feature enhancement complete!") 
+
+    import numpy as np
+    from PIL import Image
+
+    from PIL import Image
+    import numpy as np
+
+  
+    def infer_image(image_path, classifier_model, class_names):
+    # 1) Load & resize
+      pil_img = Image.open(image_path).convert("RGB").resize(IMG_SIZE)
+
+      # 2) Image features (1280)
+      arr = np.array(pil_img).astype(np.float32)
+      arr = tf.keras.applications.efficientnet_v2.preprocess_input(arr)
+      arr = np.expand_dims(arr, axis=0)  # (1, H, W, 3)
+      img_feat = image_feature_extractor(arr, training=False).numpy().squeeze().astype(np.float32)  # (1280,)
+
+      # 3) NSFW score (1)
+      nsfw_score = np.array([compute_enhanced_nsfw_score(pil_img)], dtype=np.float32)  # (1,)
+
+      # 4) OCR text + meta (2)
+      ocr_text, ocr_conf, ocr_dets = extract_text_with_ocr(pil_img)
+      ocr_meta = np.array([ocr_conf, float(ocr_dets)], dtype=np.float32)  # (2,)
+
+      # 5) Associated file text
+      file_text = find_associated_text(image_path)
+      combined_text = f"{file_text} {ocr_text}".strip()
+
+      # 6) Text embedding (768)
+      text_emb = compute_text_embedding(combined_text).astype(np.float32)  # (768,)
+
+      # 7) NER features (50)
+      ner_feats = extract_entities_and_features(combined_text).astype(np.float32)  # (50,)
+
+      # 8) NLI entailment over class names (num_classes)
+      nli_vec = compute_nli_entailment_vector(combined_text, class_names).astype(np.float32)
+
+      # 9) Fuse in the SAME ORDER as training
+      fused = np.concatenate([
+          img_feat,               # 1280
+          nsfw_score,             # 1
+          text_emb,               # 768
+          ner_feats,              # 50
+          nli_vec,                # num_classes
+          ocr_meta                # 2
+      ], axis=0).astype(np.float32)
+
+      assert fused.shape[0] == 1280 + 1 + 768 + 50 + len(class_names) + 2, f"Bad fuse shape: {fused.shape}"
+
+      fused = np.expand_dims(fused, 0)  # (1, 2104)
+      nsfw_score = compute_enhanced_nsfw_score(pil_img)
+      # 10) Predict
+      probs = classifier_model.predict(fused, verbose=0)[0]  # (num_classes,)
+      idx = int(np.argmax(probs))
+      return class_names[idx], float(probs[idx]), probs[0]
+
