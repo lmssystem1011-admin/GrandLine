@@ -96,9 +96,9 @@ except:
 # -----------------------------------------
 # 5) EfficientNetV2B0 backbone (unchanged)
 # -----------------------------------------
-#base_model = tf.keras.applications.efficientnet_v2.EfficientNetV2B0(
- #   include_top=False, weights="imagenet", input_shape=IMG_SIZE + (3,)
-#)
+base_model = tf.keras.applications.efficientnet_v2.EfficientNetV2B0(
+ include_top=False, weights="imagenet", input_shape=IMG_SIZE + (3,)
+)
 img_inputs = tf.keras.Input(shape=IMG_SIZE + (3,))
 x = tf.keras.applications.efficientnet_v2.preprocess_input(img_inputs)
 x = base_model(x, training=False)
@@ -109,7 +109,7 @@ base_model = tf.keras.applications.efficientnet_v2.EfficientNetV2B0(
     include_top=False, weights="imagenet", input_shape=IMG_SIZE + (3,)
 )
 feature_extractor = tf.keras.Model(
-    inputs=base_model.input, 
+    inputs=base_model.input,
     outputs=tf.keras.layers.GlobalAveragePooling2D()(base_model.output)
 )
 
@@ -127,7 +127,7 @@ def extract_text_with_ocr(pil_image):
         # Convert PIL to numpy array for easyocr
         img_array = np.array(pil_image)
         results = ocr_reader.readtext(img_array)
-        
+
         # Extract text with confidence weighting
         texts = []
         total_conf = 0
@@ -135,10 +135,10 @@ def extract_text_with_ocr(pil_image):
             if conf > 0.5:  # Filter low confidence detections
                 texts.append(text)
                 total_conf += conf
-        
+
         combined_text = " ".join(texts)
         avg_confidence = total_conf / len(results) if results else 0
-        
+
         return combined_text, avg_confidence, len(results)
     except Exception as e:
         print(f"OCR error: {e}")
@@ -148,10 +148,10 @@ def extract_entities_and_features(text):
     """Enhanced NER with investigative-relevant entity types"""
     if not text or len(text.strip()) == 0:
         return np.zeros(NER_FEATURE_DIM, dtype=np.float32)
-    
+
     try:
         doc = nlp(text)
-        
+
         # Count different entity types relevant to investigations
         entity_counts = {
             'PERSON': 0, 'ORG': 0, 'GPE': 0,  # People, orgs, locations
@@ -161,29 +161,29 @@ def extract_entities_and_features(text):
             'PERCENT': 0, 'QUANTITY': 0, 'ORDINAL': 0,  # Numbers
             'LANGUAGE': 0, 'NORP': 0  # Language, nationalities
         }
-        
+
         # Count entities by type
         for ent in doc.ents:
             if ent.label_ in entity_counts:
                 entity_counts[ent.label_] += 1
-        
+
         # Detect patterns using regex
         email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
         phone_pattern = r'[\+]?[\d\-\(\)\s]{10,}'
         url_pattern = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
-        
+
         entity_counts['EMAIL'] += len(re.findall(email_pattern, text))
         entity_counts['PHONE'] += len(re.findall(phone_pattern, text))
         entity_counts['URL'] += len(re.findall(url_pattern, text))
-        
+
         # Convert to feature vector (normalized)
         features = []
         max_count = max(entity_counts.values()) if any(entity_counts.values()) else 1
-        
+
         # Add normalized counts
         for key in sorted(entity_counts.keys()):
             features.append(entity_counts[key] / max_count)
-        
+
         # Add text statistics
         features.extend([
             len(text) / 1000,  # Text length (normalized)
@@ -192,14 +192,14 @@ def extract_entities_and_features(text):
             sum(1 for c in text if c.isupper()) / len(text) if text else 0,  # Caps ratio
             sum(1 for c in text if c.isdigit()) / len(text) if text else 0,  # Digit ratio
         ])
-        
+
         # Pad or truncate to NER_FEATURE_DIM
         while len(features) < NER_FEATURE_DIM:
             features.append(0.0)
         features = features[:NER_FEATURE_DIM]
-        
+
         return np.array(features, dtype=np.float32)
-    
+
     except Exception as e:
         print(f"NER error: {e}")
         return np.zeros(NER_FEATURE_DIM, dtype=np.float32)
@@ -214,26 +214,26 @@ def compute_enhanced_nsfw_score(pil_image):
             ["family friendly", "adult content"],
             ["professional", "explicit"]
         ]
-        
+
         nsfw_scores = []
         for prompt_pair in safety_prompts:
             inputs = clip_processor(
-                text=prompt_pair, 
-                images=pil_image, 
-                return_tensors="pt", 
+                text=prompt_pair,
+                images=pil_image,
+                return_tensors="pt",
                 padding=True
             ).to(device)
-            
+
             with torch.no_grad():
                 outputs = clip_model(**inputs)
-            
+
             logits_per_image = outputs.logits_per_image
             probs = torch.softmax(logits_per_image, dim=1).cpu().numpy().squeeze()
             nsfw_scores.append(float(probs[1]))  # Second option is "unsafe"
-        
+
         # Return average NSFW score
         return np.mean(nsfw_scores)
-    
+
     except Exception as e:
         print(f"NSFW scoring error: {e}")
         return 0.5  # Neutral score on error
@@ -257,7 +257,7 @@ def compute_nli_entailment_vector(extracted_text, class_names_list):
     """Enhanced NLI with multiple hypothesis templates"""
     if extracted_text is None or len(extracted_text.strip()) == 0:
         return np.zeros(len(class_names_list), dtype=np.float32)
-    
+
     # Multiple hypothesis templates for better coverage
     templates = [
         "This image is a {class_name} screenshot.",
@@ -265,29 +265,29 @@ def compute_nli_entailment_vector(extracted_text, class_names_list):
         "The image contains {class_name} interface elements.",
         "This is a {class_name} application screen."
     ]
-    
+
     entail_probs = []
     for c in class_names_list:
         class_scores = []
         for template in templates:
             hypothesis = template.format(class_name=c)
-            
+
             inputs = nli_tokenizer(
-                extracted_text, 
-                hypothesis, 
-                truncation=True, 
-                padding="longest", 
+                extracted_text,
+                hypothesis,
+                truncation=True,
+                padding="longest",
                 return_tensors="pt"
             ).to(device)
-            
+
             with torch.no_grad():
                 out = nli_model(**inputs).logits
                 probs = torch.softmax(out, dim=1).cpu().numpy().squeeze()
                 class_scores.append(float(probs[NLI_ENTAIL_IDX]))
-        
+
         # Average across templates
         entail_probs.append(np.mean(class_scores))
-    
+
     return np.array(entail_probs, dtype=np.float32)
 
 def find_associated_text(image_path):
@@ -316,45 +316,46 @@ def gather_image_paths_and_labels(root_dir):
     return items
 
 def precompute_enhanced_features(split_name, items_list, cache_dir=CACHE_DIR):
-    """Enhanced feature computation with multi-modal fusion"""
+    """Enhanced feature computation with multi-modal fusion and robust logging."""
     cache_file = Path(cache_dir) / f"{split_name}_enhanced_fused_features.npz"
-    
+
     if cache_file.exists():
         print(f"Loading cached features from {cache_file}")
         data = np.load(str(cache_file))
         return data["X"], data["y"]
-    
+
     print(f"Precomputing enhanced features for {split_name} ({len(items_list)} items)...")
-    
-    X_list = []
-    y_list = []
-    batch_images = []
-    batch_metadata = []
-    BATCH_PRE = 16  # Reduced batch size due to more complex processing
-    
+
+    X_list, y_list = [], []
+    batch_images, batch_metadata = [], []
+    BATCH_PRE = 16  # Smaller batch due to complex pipeline
+
+    if len(items_list) == 0:
+        raise ValueError(f"No items found for split '{split_name}'. Check DATA_DIR and subfolders.")
+
     for img_path, label in tqdm(items_list):
         try:
             pil_img = load_image_as_pil(img_path, size=IMG_SIZE)
-            
+
             # 1. Enhanced NSFW scoring
             nsfw_score = compute_enhanced_nsfw_score(pil_img)
-            
-            # 2. OCR text extraction with multi-language support
+
+            # 2. OCR text extraction
             ocr_text, ocr_conf, ocr_detections = extract_text_with_ocr(pil_img)
-            
-            # 3. Check for associated text file
+
+            # 3. Associated text file
             file_text = find_associated_text(img_path)
             combined_text = f"{file_text} {ocr_text}".strip()
-            
+
             # 4. Text embedding
             text_embedding = compute_text_embedding(combined_text)
-            
+
             # 5. NER features
             ner_features = extract_entities_and_features(combined_text)
-            
+
             # 6. NLI entailment scores
             nli_vec = compute_nli_entailment_vector(combined_text, class_names)
-            
+
             # Prepare for batch image processing
             img_arr = np.array(pil_img).astype(np.float32)
             batch_images.append(img_arr)
@@ -367,62 +368,70 @@ def precompute_enhanced_features(split_name, items_list, cache_dir=CACHE_DIR):
                 'ocr_detections': ocr_detections,
                 'label': label
             })
-            
+
             # Process batch
             if len(batch_images) >= BATCH_PRE:
-                arr = np.stack(batch_images, axis=0)
-                arr_tf = tf.convert_to_tensor(arr)
-                img_feats = image_feature_extractor(arr_tf, training=False).numpy()
-                
-                for i, img_feat in enumerate(img_feats):
-                    meta = batch_metadata[i]
-                    
-                    # Combine all features
-                    fused = np.concatenate([
-                        img_feat.astype(np.float32),  # Image features
-                        np.array([meta['nsfw_score']], dtype=np.float32),  # NSFW
-                        meta['text_embedding'],  # Text semantics
-                        meta['ner_features'],  # NER features
-                        meta['nli_vec'].astype(np.float32),  # NLI entailment
-                        np.array([meta['ocr_conf'], meta['ocr_detections']], dtype=np.float32)  # OCR metadata
-                    ], axis=0)
-                    
-                    X_list.append(fused)
-                    y_list.append(meta['label'])
-                
-                batch_images = []
-                batch_metadata = []
-        
+                try:
+                    arr = np.stack(batch_images, axis=0)
+                    arr_tf = tf.convert_to_tensor(arr)
+                    img_feats = feature_extractor(arr_tf, training=False).numpy()  # FIXED NAME
+
+                    for i, img_feat in enumerate(img_feats):
+                        meta = batch_metadata[i]
+                        fused = np.concatenate([
+                            img_feat.astype(np.float32),
+                            np.array([meta['nsfw_score']], dtype=np.float32),
+                            meta['text_embedding'],
+                            meta['ner_features'],
+                            meta['nli_vec'].astype(np.float32),
+                            np.array([meta['ocr_conf'], meta['ocr_detections']], dtype=np.float32)
+                        ], axis=0)
+                        X_list.append(fused)
+                        y_list.append(meta['label'])
+
+                except Exception as batch_e:
+                    print(f"Batch processing error: {batch_e}")
+
+                batch_images, batch_metadata = [], []
+
         except Exception as e:
             print(f"Error processing {img_path}: {e}")
             continue
-    
+
     # Process remaining batch
     if len(batch_images) > 0:
-        arr = np.stack(batch_images, axis=0)
-        arr_tf = tf.convert_to_tensor(arr)
-        img_feats = image_feature_extractor(arr_tf, training=False).numpy()
-        
-        for i, img_feat in enumerate(img_feats):
-            meta = batch_metadata[i]
-            fused = np.concatenate([
-                img_feat.astype(np.float32),
-                np.array([meta['nsfw_score']], dtype=np.float32),
-                meta['text_embedding'],
-                meta['ner_features'],
-                meta['nli_vec'].astype(np.float32),
-                np.array([meta['ocr_conf'], meta['ocr_detections']], dtype=np.float32)
-            ], axis=0)
-            X_list.append(fused)
-            y_list.append(meta['label'])
-    
+        try:
+            arr = np.stack(batch_images, axis=0)
+            arr_tf = tf.convert_to_tensor(arr)
+            img_feats = feature_extractor(arr_tf, training=False).numpy()
+
+            for i, img_feat in enumerate(img_feats):
+                meta = batch_metadata[i]
+                fused = np.concatenate([
+                    img_feat.astype(np.float32),
+                    np.array([meta['nsfw_score']], dtype=np.float32),
+                    meta['text_embedding'],
+                    meta['ner_features'],
+                    meta['nli_vec'].astype(np.float32),
+                    np.array([meta['ocr_conf'], meta['ocr_detections']], dtype=np.float32)
+                ], axis=0)
+                X_list.append(fused)
+                y_list.append(meta['label'])
+        except Exception as rem_e:
+            print(f"Final batch error: {rem_e}")
+
+    # Guard: Ensure something was processed
+    if len(X_list) == 0:
+        raise ValueError(f"No features computed for {split_name}. Check image paths and feature extractors.")
+
     X = np.stack(X_list, axis=0).astype(np.float32)
     y = np.array(y_list, dtype=np.int32)
-    
+
     print(f"Saving enhanced cache to {cache_file} (X shape: {X.shape})")
     np.savez_compressed(str(cache_file), X=X, y=y)
-    
+
     return X, y
+
 
 # -----------------------------------------
 # 8) Enhanced classifier architecture
@@ -430,43 +439,43 @@ def precompute_enhanced_features(split_name, items_list, cache_dir=CACHE_DIR):
 def build_enhanced_classifier(input_dim, num_classes, dtype_head="float32"):
     """Enhanced classifier with attention and skip connections"""
     inp = layers.Input(shape=(input_dim,), dtype="float32")
-    
+
     # Input normalization
     x = layers.BatchNormalization()(inp)
-    
+
     # Multi-head attention for feature importance
     x_reshaped = layers.Reshape((1, input_dim))(x)
     attention_output = layers.MultiHeadAttention(
         num_heads=8, key_dim=input_dim // 8
     )(x_reshaped, x_reshaped)
     x_attended = layers.Flatten()(attention_output)
-    
+
     # Residual connection
     x_combined = layers.Add()([x, x_attended])
-    
+
     # Deep feature extraction with skip connections
     x1 = layers.Dense(1024, activation="relu")(x_combined)
     x1 = layers.Dropout(0.3)(x1)
     x1 = layers.BatchNormalization()(x1)
-    
+
     x2 = layers.Dense(512, activation="relu")(x1)
     x2 = layers.Dropout(0.3)(x2)
     x2 = layers.BatchNormalization()(x2)
-    
+
     # Skip connection
     x1_proj = layers.Dense(512, activation="relu")(x1)
     x2_skip = layers.Add()([x2, x1_proj])
-    
+
     x3 = layers.Dense(256, activation="relu")(x2_skip)
     x3 = layers.Dropout(0.2)(x3)
     x3 = layers.BatchNormalization()(x3)
-    
+
     x4 = layers.Dense(128, activation="relu")(x3)
     x4 = layers.Dropout(0.2)(x4)
-    
+
     # Output layer
     out = layers.Dense(num_classes, activation="softmax", dtype=dtype_head)(x4)
-    
+
     model = keras.Model(inp, out)
     return model
 
@@ -483,7 +492,7 @@ if __name__ == "__main__":
     split_at = int(0.8 * len(all_perm))
     train_items = all_perm[:split_at]
     val_items = all_perm[split_at:]
-    
+
     # Compute enhanced features
     X_train, y_train = precompute_enhanced_features("train", train_items)
     X_val, y_val = precompute_enhanced_features("val", val_items)
@@ -492,8 +501,10 @@ if __name__ == "__main__":
     y_train = np.asarray(y_train)
     y_val = np.asarray(y_val)
     print("Enhanced feature shapes:", X_train.shape, y_train.shape, X_val.shape, y_val.shape)
-    
-      
+
+    # Build the enhanced classifier
+    enhanced_model = build_enhanced_classifier(X_train.shape[1], num_classes)
+
         # Convert integer labels to one-hot floats
     y_train_oh = tf.keras.utils.to_categorical(y_train, num_classes=num_classes).astype(np.float32)
     y_val_oh   = tf.keras.utils.to_categorical(y_val,   num_classes=num_classes).astype(np.float32)
@@ -513,18 +524,18 @@ if __name__ == "__main__":
 
     enhanced_model.summary()
 
-    
+
     # Training with enhanced callbacks
     checkpoint_path = "/content/drive/MyDrive/enhanced_screenshot_classifier.keras"
     callbacks = [
         keras.callbacks.ModelCheckpoint(
-            checkpoint_path, 
-            save_best_only=True, 
+            checkpoint_path,
+            save_best_only=True,
             monitor="val_accuracy",
             save_weights_only=False
         ),
         keras.callbacks.EarlyStopping(
-            patience=7, 
+            patience=7,
             restore_best_weights=True,
             monitor="val_accuracy"
         ),
@@ -535,7 +546,7 @@ if __name__ == "__main__":
             min_lr=1e-7
         )
     ]
-        
+
       # --- Fit (use smaller steps_per_epoch for debugging if you want) ---
     history = enhanced_model.fit(
         X_train, y_train_oh,
@@ -545,15 +556,15 @@ if __name__ == "__main__":
         callbacks=callbacks,
         verbose=2
     )
-    
+
     # Enhanced evaluation
     y_pred_probs = enhanced_model.predict(X_val)
     y_pred = np.argmax(y_pred_probs, axis=1)
-    
+
     # Confusion matrix
     cm = confusion_matrix(y_val, y_pred)
     plt.figure(figsize=(10, 8))
-    sns.heatmap(cm, annot=True, fmt="d", xticklabels=class_names, 
+    sns.heatmap(cm, annot=True, fmt="d", xticklabels=class_names,
                 yticklabels=class_names, cmap="Blues")
     plt.xlabel("Predicted")
     plt.ylabel("True")
@@ -562,14 +573,14 @@ if __name__ == "__main__":
     plt.yticks(rotation=0)
     plt.tight_layout()
     plt.show()
-    
+
     print("\nClassification Report:")
     print(classification_report(y_val, y_pred, target_names=class_names))
-    
+
     # Save model and metadata
     enhanced_model.save(checkpoint_path)
     print(f"✅ Saved enhanced model to {checkpoint_path}")
-    
+
     # Save feature information
     feature_info = {
         'total_feature_dim': feature_dim,
@@ -581,11 +592,11 @@ if __name__ == "__main__":
         'ocr_metadata_dim': 2,
         'class_names': class_names
     }
-    
+
     with open("/content/drive/MyDrive/enhanced_feature_info.json", "w") as f:
         json.dump(feature_info, f, indent=2)
-    
-    print("✅ Feature enhancement complete!") 
+
+    print("✅ Feature enhancement complete!")
 
     import numpy as np
     from PIL import Image
@@ -593,7 +604,7 @@ if __name__ == "__main__":
     from PIL import Image
     import numpy as np
 
-  
+
     def infer_image(image_path, classifier_model, class_names):
     # 1) Load & resize
       pil_img = Image.open(image_path).convert("RGB").resize(IMG_SIZE)
@@ -602,7 +613,7 @@ if __name__ == "__main__":
       arr = np.array(pil_img).astype(np.float32)
       arr = tf.keras.applications.efficientnet_v2.preprocess_input(arr)
       arr = np.expand_dims(arr, axis=0)  # (1, H, W, 3)
-      img_feat = image_feature_extractor(arr, training=False).numpy().squeeze().astype(np.float32)  # (1280,)
+      img_feat = feature_extractor(arr, training=False).numpy().squeeze().astype(np.float32)  # (1280,)
 
       # 3) NSFW score (1)
       nsfw_score = np.array([compute_enhanced_nsfw_score(pil_img)], dtype=np.float32)  # (1,)
@@ -642,4 +653,3 @@ if __name__ == "__main__":
       probs = classifier_model.predict(fused, verbose=0)[0]  # (num_classes,)
       idx = int(np.argmax(probs))
       return class_names[idx], float(probs[idx]), probs[0]
-
